@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>web CAD proof of concept</title>
+
+    <script language="Javascript" type="text/javascript" src="lib/jquery-1.11.2.min.js"></script>
+
+    <script src="js/CIFFileReader.js"></script>
+
+  </head>
+
+  <body onload="">
+   
+
+    <input type="file" id="input_files" onchange="loadCIFFile();"/><br/>
+    <button onclick="loadCIFFile();">Parse</button>
+    
+
+    <script src="main.js"></script>
+
+    <div id="output_div"></div>
+  </body>
+</html>
+
+
+

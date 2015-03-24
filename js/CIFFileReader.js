@@ -116,11 +116,12 @@ CIFFileReader.readFile = function( fileObject,
  *
  * @param data The actual CIF data in a string.
  * @return An object with the entities:
- *            name (string)
- *            loopTables[] { header[], data[][] }
- *            globals (object)
- *            locateLoopTable(header(Array), partialMatch(boolean)): function
- *            complexData[] { startLine, lines, endLine }
+ *            name:string
+ *            loopTables:Array { header:Array, data:(Array:Array) }
+ *            globals:Object
+ *            locateLoopTable:function( header:Array, partialMatch:boolean) -> integer
+ *            getLoopTable:   function( header:Array, partialMatch:boolean) -> Object
+ *            complexData:(Array:Object{ startLine, lines, endLine })
  **/
 CIFFileReader.parseCIFData = function( data ) {
 
@@ -129,61 +130,8 @@ CIFFileReader.parseCIFData = function( data ) {
 		   globals     : {},
 		   complexData : []
 		 };
-    // Add some helper functions to
-    result.locateLoopTable = function( header, partialMatch ) {
-	for( var i = 0; i < this.loopTables.length; i++ ) {
-	    if( !partialMatch && this._compareArrays(this.loopTables[i].header,header) )
-		return i;
-	    if( partialMatch && this._arrayContainsArray(this.loopTables[i].header, header) )
-		return i;
-	}
-	return -1; // Not found
-    };
-    result._compareArrays = function( a, b ) {
-	// if the other array is a falsy value, return
-	if ( !a || !b)
-            return false;
-
-	// compare lengths - can save a lot of time 
-	if (a.length != b.length)
-            return false;
-
-	for (var i = 0, l=a.length; i < l; i++) {
-            // Check if we have nested arrays
-            if (a[i] instanceof Array && b[i] instanceof Array) {
-		// recurse into the nested arrays
-		if (!a[i].equals(b[i]))
-                    return false;       
-            }           
-            else if (a[i] != b[i]) { 
-		// Warning - two different object instances will never be equal: {x:20} != {x:20}
-		return false;   
-            }           
-	}       
-	return true;
-    };
-    result._arrayContainsArray = function( a, b ) {
-	// if the other array is a falsy value, return
-	if (!a || !b)
-            return false;
-
-	// compare lengths - can save a lot of time 
-	if (a.length < b.length)
-            return false;
-
-	for (var i = 0, l=b.length; i < l; i++) {
-            // Check if we have nested arrays
-            if (a[i] instanceof Array && b[i] instanceof Array) {
-		// recurse into the nested arrays
-		if (!a[i].contains(b[i]))
-                    return false;       
-            } else if( a.indexOf(b[i]) == -1 ) {
-		return false;
-	    }
-	}       
-	return true;
-    };
-
+    // Add some helper functions
+    CIFFileReader._installHelperFunctions( result );
 
     // Split data into lines.
     var lines = data.split( "\n" );
@@ -396,4 +344,68 @@ CIFFileReader._tryNumberConversion = function( str ) {
     if( isNaN(i) )
 	return str;
     return i;
+};
+
+CIFFileReader._installHelperFunctions = function( result ) {
+
+    result.locateLoopTable = function( header, partialMatch ) {
+	for( var i = 0; i < this.loopTables.length; i++ ) {
+	    if( !partialMatch && this._compareArrays(this.loopTables[i].header,header) )
+		return i;
+	    if( partialMatch && this._arrayContainsArray(this.loopTables[i].header, header) )
+		return i;
+	}
+	return -1; // Not found
+    };
+    result.getLoopTable = function( header, partialMatch ) {
+	var index = this.locateLoopTable(header,partialMatch);
+	if( index == -1 ) return null;
+	else              return this.loopTables[index];
+    };
+    result._compareArrays = function( a, b ) {
+	// if the other array is a falsy value, return
+	if ( !a || !b)
+            return false;
+
+	// compare lengths - can save a lot of time 
+	if (a.length != b.length)
+            return false;
+
+	for (var i = 0, l=a.length; i < l; i++) {
+            // Check if we have nested arrays
+            if (a[i] instanceof Array && b[i] instanceof Array) {
+		// recurse into the nested arrays
+		if (!a[i].equals(b[i]))
+                    return false;       
+            }           
+            else if (a[i] != b[i]) { 
+		// Warning - two different object instances will never be equal: {x:20} != {x:20}
+		return false;   
+            }           
+	}       
+	return true;
+    };
+    result._arrayContainsArray = function( a, b ) {
+	// if the other array is a falsy value, return
+	if (!a || !b)
+            return false;
+
+	// compare lengths - can save a lot of time 
+	if (a.length < b.length)
+            return false;
+
+	for (var i = 0, l=b.length; i < l; i++) {
+            // Check if we have nested arrays
+            if (a[i] instanceof Array && b[i] instanceof Array) {
+		// recurse into the nested arrays
+		if (!a[i].contains(b[i]))
+                    return false;       
+            } else if( a.indexOf(b[i]) == -1 ) {
+		return false;
+	    }
+	}       
+	return true;
+    };
+
+
 };
