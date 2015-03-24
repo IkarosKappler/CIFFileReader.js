@@ -157,6 +157,20 @@ CIFFileReader.parseCIFData = function( data ) {
 	    // Ignore comments and empty lines
 	    i++;
 
+	} else if( lines[i] == "[" || lines[i] == "]" ) {
+
+	    // Do you want to implement?
+	    // See
+	    //   http://www.iucr.org/resources/cif/spec/version1.1/cifsyntax
+	    throw "The opening/closing delimiter '" + lines[i] + "' is currently not recognized by this parse. Do you want to implement it?";
+
+	} else if( lines[i] == "data_" || lines[i] == "save_" || lines[i] == "stop_" || lines[i] == "global_" ) {
+
+	    // Do you want to implement?
+	    // See
+	    //   http://www.iucr.org/resources/cif/spec/version1.1/cifsyntax
+	    throw "The '" + lines[i] + "' directive is currently not recognized by this parser. Do you want to implement it?";
+
 	} else if( result.name == null || typeof result.name == "undefined" ) { 
 
 	    // The first line usually contains the name (if not beginning with '_')
@@ -335,6 +349,9 @@ CIFFileReader._splitLineKeepQuotes = function( str ) {
  * Otherwise this function returns the string value itself.
  **/
 CIFFileReader._tryNumberConversion = function( str ) {
+
+    if( str.indexOf("(") != -1 )
+	return str;
 
     var f = parseFloat(str);
     if( !isNaN(f) && isFinite(str) ) {

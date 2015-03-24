@@ -17,7 +17,8 @@ function loadCIFFile() {
 function processCIF( cif ) {
 
     displayOutput( JSON.stringify(cif,null,"\t"), false );
-    if( true ) return;
+    if( !$( "#process_data").is(":checked") ) 
+	return;
 	
 
 
@@ -32,21 +33,7 @@ function processCIF( cif ) {
     displayOutput( "_cell_angle_gamma=" + cif.globals["_cell_angle_gamma"], true );
 
 
-    // Locate header that looks like
-    //  _atom_site_label
-    //  _atom_site_type_symbol
-    //  _atom_site_fract_x
-    //  _atom_site_fract_y
-    //  _atom_site_fract_z
-
-    var tableHeaderGeneralData = [ 
-	"_atom_site_label",
-	"_atom_site_type_symbol",
-	"_atom_site_fract_x",
-	"_atom_site_fract_y",
-	"_atom_site_fract_z"
-    ];
-    // Detect required table
+    // Detect required tables
     var tableHeaderData = [
 	"_atom_site_label",
 	"_atom_site_type_symbol",
@@ -72,15 +59,21 @@ function processCIF( cif ) {
 	"_geom_bond_publ_flag"
     ];
 	   
-    var tableGeneralData = cif.getLoopTable( tableHeaderGeneralData, true ); // partialMatch
-    var tableHeaderData  = cif.getLoopTable( tableHeaderData,        true ); // partialMatch
-    var tableBindings    = cif.getLoopTable( tableBinding,           true ); // partialMatch
-    if( index == -1 ) {
-	displayOutput( "Looptable not found.<br/>\n", true );
-	displayOutput( "<code>" + JSON.stringify(cif,null,"<br/>\n\t") + "</code>", true );
+    //var tableGeneralData = cif.getLoopTable( tableHeaderGeneralData, true ); // partialMatch
+    var tableData        = cif.getLoopTable( tableHeaderData,        true ); // partialMatch
+    var tableBindings    = cif.getLoopTable( tableHeaderBindings,    true ); // partialMatch
+    if( typeof tableData == "undefined" ) {
+	displayOutput( "Looptable for data not found: " + JSON.stringify(tableHeaderData)+ "<br/>\n", true );
+    } else if( typeof tableBindings == "undefined" ) {
+	displayOutput( "Looptable for general data not found: " + JSON.strinigy(tableBindings)+ "<br/>\n", true );
     } else {
-	var loopTable = cif.loopTables[index];
-	displayOutput( JSON.stringify(loopTable,null,"<br/>\n\t"), true );
+
+	//displayOutput( "Found " + tableGeneralData.data.length + " records of meta information.", true );
+	displayOutput( "Found " + tableData.data.length + " atom(s).", true );
+	displayOutput( "Found " + tableBindings.data.length + " binding(s).", true );
+
+	
+	displayOutput( "Looptable for general data not found: " + JSON.stringify(tableBindings,null,"\t")+ "<br/>\n", true );
     }
 };
 
@@ -89,7 +82,7 @@ function processCIF( cif ) {
 
 function displayOutput( data, append ) {
     if( append )
-	document.getElementById( "output_div" ).innerHTML += "<pre>" + data + "</pre><br/>\n";
+	document.getElementById( "output_div" ).innerHTML += data + "\n";
     else
-	document.getElementById( "output_div" ).innerHTML = "<pre>" + data + "</pre><br/>\n";
+	document.getElementById( "output_div" ).innerHTML = data + "\n";
 }
