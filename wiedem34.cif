@@ -1,5 +1,5 @@
  
-data_wiedemann34
+data_wiedem34
 
 _audit_creation_method           SHELXL-97
 _chemical_name_systematic        

@@ -48,77 +48,88 @@
  * Cl2 aufgespannt. Zentralatom wäre Co1.
  * --- END mail ---
  *
- * @author  Ikaros Kappler
- * @date    2015-03-23
- * @version 1.0.0
+ * @author   Ikaros Kappler
+ * @date     2015-03-23
+ * @modified 2015-03-24
+ * @version  1.0.1
  **/
 
-var CIFFileReader = {};
-
-//window.alert( IKRS.CIFFileReader );
 
 /**
- * Pass an <input type="file" /> object.
+ * A a named containter object to avoid pollution of global name space.
  **/
-/*
-CIFFileReader.readFiles = function( fileDOMElement, callbackOK, callbackError ) {
+var CIFFileReader = {};
 
-    //window.alert( fileDOMElement );
-    
-    var resultSet = [];
-    for( var i = 0; i < fileDOMElement.files.length; i++ ) {
-	//window.alert( fileDOMElement.files[i].name );
-	
-	var result = CIFFileReader.readFile( fileDOMElement.files[i],
-					     function( r ) { resultSet.push(r); },
-					     callbackError
-					   );
-	//window.alert( "Result[" + i +"]=" + JSON.stringify(result) );
-	//resultSet.push( result );
-    }
 
-    return resultSet;
-};
-*/
 
-CIFFileReader.readFile = function( fileObject, callbackOK, callbackError ) {
+/**
+ * Read a whole CIF file.
+ *
+ * The passed file should be the value from an <input type="file" /> object.
+ * Example: document.getElementById('input_file')[0]
+ *
+ * The files contents is asynchronously (!) read and then passed to 
+ * CIFFileReader.parseCIFData( fileContents ).
+ *
+ * callbackOK   : function( result ) { ... }
+ * callbackError: function( errmsg ) { ... }
+ **/
+CIFFileReader.readFile = function( fileObject, 
+				   callbackOK, 
+				   callbackError 
+				 ) {
 
     var reader = new FileReader();
     reader.parser = this;
     reader.onload = function( e ) {
 
 	try {
-	    //this.parser.parseOpenSCADData( e.target.result );
-	    callbackOK( CIFFileReader.parseCIFData( e.target.result, fileObject.name ) );
-	    
+	    var result = CIFFileReader.parseCIFData( e.target.result );
+	    result.filename = fileObject.name;
+	    callbackOK( result );	    
 	} catch( e ) {
 	    var errmsg = "Error: " + e;
 	    console.log( errmsg );
-	    //throw errmsg;
 	    callbackError( errmsg );
+	    throw errmsg;
 	}
 	
     };
     reader.onprogress = function( e ) {
 	// NOOP
-	// (display progress?)
+	// (report progress?)
     };
     reader.onerror = function( e ) {
 	var errmsg = "File upload error (code=" + e.target.error.code + ").";
 	console.log( errmsg );
+	callbackError( errmsg );
 	throw errmsg;
     };
     reader.readAsBinaryString( fileObject );
 
 };
 
-CIFFileReader.parseCIFData = function( data, filename ) {
+/**
+ * Parse the given CIF data.
+ *
+ * The passed data must be a string.
+ *
+ * @param data The actual CIF data in a string.
+ * @return An object with the entities:
+ *            name (string)
+ *            loopTables[] { header[], data[][] }
+ *            globals (object)
+ *            locateLoopTable(header(Array), partialMatch(boolean)): function
+ *            complexData[] { startLine, lines, endLine }
+ **/
+CIFFileReader.parseCIFData = function( data ) {
 
-    var result = { filename    : "x", //filename,
-		   name        : null,
+    var result = { name        : null,
 		   loopTables  : [],
-		   globals     : []
+		   globals     : {},
+		   complexData : []
 		 };
+    // Add some helper functions to
     result.locateLoopTable = function( header, partialMatch ) {
 	for( var i = 0; i < this.loopTables.length; i++ ) {
 	    if( !partialMatch && this._compareArrays(this.loopTables[i].header,header) )
@@ -166,27 +177,17 @@ CIFFileReader.parseCIFData = function( data, filename ) {
 		// recurse into the nested arrays
 		if (!a[i].contains(b[i]))
                     return false;       
-            }        
-	    /*
-            else if (a[i] != b[i]) { 
-		// Warning - two different object instances will never be equal: {x:20} != {x:20}
-		return false;   
-		
-            } 
-	    */
-            else if( a.indexOf(b[i]) == -1 ) {
+            } else if( a.indexOf(b[i]) == -1 ) {
 		return false;
 	    }
 	}       
 	return true;
     };
-    //window.alert( "TEST: " + result );
 
-    // This regex split omits empty lines
-    //var lines = data.match(/[^\r\n]+/g); 
+
+    // Split data into lines.
     var lines = data.split( "\n" );
     
-    // The first line usually contains the name (if not beginning with '_')
     var i = 0;
     while( i < lines.length ) {
 	lines[i] = lines[i].trim();
@@ -194,7 +195,7 @@ CIFFileReader.parseCIFData = function( data, filename ) {
 	if( lines[i] == "loop_" ) {
 	    i = CIFFileReader._parseLoop( lines, i+1, result );
 
-	} else if( lines[i] == ";" ) {
+	} else if( lines[i].startsWith(";") ) {
 	    
 	    // Skip complex data
 	    i = CIFFileReader._readComplexData( lines, i, result );
@@ -203,10 +204,16 @@ CIFFileReader.parseCIFData = function( data, filename ) {
 
 	    i = CIFFileReader._parseGlobal( lines, i, result );
 
-	} else if( result.name == null ) { // i == 0 ) {
-
-	    result.name = lines[i];
+	} else if( lines[i].startsWith("#") || lines[i].length == 0 ) {
+	    
+	    // Ignore comments and empty lines
 	    i++;
+
+	} else if( result.name == null || typeof result.name == "undefined" ) { 
+
+	    // The first line usually contains the name (if not beginning with '_')
+	    result.name = lines[i];
+	    i++; 
 
 	} else {
 	    // Unknown token. Skip line.
@@ -215,7 +222,6 @@ CIFFileReader.parseCIFData = function( data, filename ) {
 	}
     } // END while
   
-    //window.alert( "TEST: " + JSON.stringify(result) );
     return result;
 };
 
@@ -239,9 +245,8 @@ CIFFileReader._parseLoop = function( lines, i, result ) {
 
 	var line = lines[i];
 	// Parse table data (row)
-	var row = line;
+	var row = CIFFileReader._splitLineKeepQuotes( line );
 	loopTable.data.push( row );
-	// SPLIT ROW!!!
 
 	i++;
 	    
@@ -273,31 +278,122 @@ CIFFileReader._parseLoopTableHeader = function( lines, i, loopTable ) {
 };
 
 CIFFileReader._parseGlobal = function( lines, i, result ) {
-    
-    //window.alert( "parse global: " + lines[i] );
 
     var line  = lines[i].trim();
     var index = line.indexOf( " " );
     if( index == -1 ) {
-	result.globals.push( line, null );
+	var key = line;
+	//window.alert( "non-value global: " + key );
+	// There is no value in the current line, the actual value might be a Complex
+	// starting in the next line.
+	if( i+1 < lines.length && (lines[i+1] = lines[i+1].trim()).startsWith(";") ) {
+
+	    // Make a dummy result ;)
+	    var dummy = { complexData : [] };
+	    i = CIFFileReader._readComplexData( lines, i+1, dummy );
+	    // Fetch complex data from dummy (there can only be one!)
+	    //window.alert( "complex global: " + key + "=" + JSON.stringify(dummy.complexData) );
+	    result.globals[key] = dummy.complexData[0].lines; //join("\n");
+	    //window.alert( result.globals[key] );
+
+	    // Index already points at line after closing ';'
+	    return i; 
+	} else {
+	    result.globals[line] = null;
+	    return i+1;
+	}
     } else {
 	var name  = line.substring(0,index).trim();
 	var value = line.substring(index+1).trim();
 	//window.alert( name + "=" + value );
-	result.globals[name] = value;
+	result.globals[name] = CIFFileReader._tryNumberConversion(value);
+	return i+1;
     }
     
-    return i+1;
 
 };
 
+/**
+ * The index i must point to the line beginning with ';'.
+ **/
 CIFFileReader._readComplexData = function( lines, i, result ) {
 
-    while( i < lines.length && (lines[i] = lines[i].trim()) != ";" )
-	i++;
+    var complex   =  { beginLine : i,
+		       lines     : [],
+		       endLine   : i
+		     };
 
+    // Add current line (if not empty)
+    var firstLine = lines[i].substring(1).trim();
+    if( firstLine.length > 0 )
+	complex.lines.push( firstLine );
+    i++;
+
+    while( i < lines.length && (lines[i] = lines[i].trim()) != ";" ) {
+
+	complex.lines.push( lines[i] );
+	i++;
+    }
+
+    complex.endLine = i;
+    result.complexData.push( complex );
+    
     if( i+1 >= lines.length )
 	return i;    // EOI reached
     else
 	return i+1;  // Skip ';' line
+};
+
+/**
+ * The CIF's quote format is a bit weird (compared to other text formats), as
+ * is allows nested un-escaped quote characters.
+ *
+ * Let's give it a try.
+ **/
+CIFFileReader._splitLineKeepQuotes = function( str ) {
+
+    var split  = [];
+    var buffer = [];
+
+    var i = 0;
+    var quotes = false;
+    var c;
+    while( i < str.length ) {
+	c = str.substring(i,i+1);
+	if( c == "'" ) {
+	    quotes = !quotes;
+	    i++;
+	    continue;
+	} 
+
+	if( quotes || (c != ' ' && c != '\t') ) {
+	    buffer.push(c);
+	} else if( c == ' ' || c == '\t' ) {
+	    split.push( CIFFileReader._tryNumberConversion(buffer.join("")) );
+	    buffer = [];
+	}
+	i++;
+    }
+    
+    if( buffer.length > 0 )
+	split.push( CIFFileReader._tryNumberConversion(buffer.join("")) );
+
+    return split;
+};
+
+/**
+ * If the passed string represents a float number, its float value is returned.
+ * If the passed string represents an integer number, its integer value is returned.
+ * Otherwise this function returns the string value itself.
+ **/
+CIFFileReader._tryNumberConversion = function( str ) {
+
+    var f = parseFloat(str);
+    if( !isNaN(f) && isFinite(str) ) {
+	return f;
+    }
+    var i = parseInt(str);
+    if( isNaN(i) )
+	return str;
+    return i;
 };
